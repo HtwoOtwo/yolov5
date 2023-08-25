@@ -106,7 +106,29 @@ def replicate(im, labels):
         labels = np.append(labels, [[labels[i, 0], x1a, y1a, x2a, y2a]], axis=0)
 
     return im, labels
-
+    
+def scalebox(im, labels, prob = 0.8, scale_range=(0.5, 1.2)):
+    # scale labels xyxy
+    h, w = im.shape[:2]
+    boxes = labels[:, 1:].astype(int)
+    c = labels[:,0].astype(int)
+    x1, y1, x2, y2 = boxes.T
+    s = ((x2 - x1) + (y2 - y1)) / 2  # side length (pixels)
+    for i in s.argsort()[:round(s.size * 1.0)]:  # smallest indices,  #NOTE smallest indices used to be 0.5
+        if random.random() > prob: continue
+        x1b, y1b, x2b, y2b =  boxes[i]
+        bh, bw = y2b - y1b, x2b - x1b
+        scale_factor = np.random.uniform(scale_range[0], scale_range[1])
+        bh *= scale_factor
+        bw *= scale_factor
+        x1a, y1a, x2a, y2a = [x1b, y1b, x1b + bw, y1b + bh]
+        x1a, y1a, x2a, y2a = np.clip([x1a, y1a, x2a, y2a], [0, 0, 0, 0], [w - 1, h - 1, w - 1, h - 1])
+        labels[i , 1: ] = [x1a, y1a, x2a, y2a]
+        if int(x2a) - int(x1a) <= 0 or int(y2a) - int(y1a) <= 0: continue
+        resized_roi = cv2.resize(im[int(y1b):int(y2b), int(x1b):int(x2b)], (int(x2a)-int(x1a), int(y2a)-int(y1a)))
+        im[int(y1b):int(y2b), int(x1b):int(x2b)] = [random.randint(64, 191) for _ in range(3)] # cover the origin place
+        im[int(y1a):int(y2a), int(x1a):int(x2a)] = resized_roi
+    return im, labels
 
 def letterbox(im, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
     # Resize and pad image while meeting stride-multiple constraints
